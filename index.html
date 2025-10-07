@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Mint Your NFT • Shibarium</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+:root{--bg:#0b0f14;--muted:#96a0af;--text:#e9eef6;--accent:#7dd3fc;--accent-2:#a78bfa;--danger:#ff6b6b}
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;font-family:system-ui,Segoe UI,Inter,Roboto,Arial;background:radial-gradient(1000px 600px at 10% -10%, rgba(125,211,252,.15), transparent),radial-gradient(900px 600px at 110% 10%, rgba(167,139,250,.12), transparent),var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px}
+.card{width:100%;max-width:720px;background:rgba(255,255,255,.03);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.header{display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:14px;margin-bottom:16px}
+.title{font-weight:700;font-size:22px;letter-spacing:.3px}
+.muted{color:var(--muted)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+button,input[type=number]{height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#0e141c;color:var(--text)}
+button{padding:0 16px;cursor:pointer;font-weight:600}
+button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));border:none}
+button:disabled{opacity:.5;cursor:not-allowed}
+input[type=number]{padding:0 12px;width:100px;-moz-appearance:textfield}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.stat{flex:1;min-width:140px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);padding:12px 14px;border-radius:12px}
+.stat .label{font-size:12px;color:var(--muted)}
+.stat .value{font-size:18px;font-weight:700;margin-top:4px}
+.progress{position:relative;height:14px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.progress>span{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .6s ease}
+.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
+@media (max-width:720px){.grid{grid-template-columns:1fr}}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.error{color:var(--danger);font-size:13px;margin-top:10px}
+.success{color:#7dffb6;font-size:13px;margin-top:10px}
+.divider{height:1px;background:rgba(255,255,255,.08);margin:16px 0}
+.footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.badge{font-size:12px;color:#0b1220;background:rgba(125,211,252,.9);padding:6px 10px;border-radius:999px;font-weight:700}
+</style>
+</head>
+
+<body>
+  
+  <!-- Left and Right floating images -->
+<div class="side-images left" id="leftImages"></div>
+<div class="side-images right" id="rightImages"></div>
+
+<div class="card">
+  <div class="header">
+    <div>
+      <div class="title">CHIKA NFT Minting Page</div>
+      <div class="muted" id="network">Not connected</div>
+    </div>
+    <div class="row">
+      <button id="connectBtn">Connect Wallet</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="row" style="margin-bottom:10px">
+        <div class="stat">
+          <div class="label">Minted</div>
+          <div class="value" id="minted">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Remaining (to 10,000)</div>
+          <div class="value" id="remaining">10000</div>
+        </div>
+        <div class="stat">
+          <div class="label">Price (per NFT)</div>
+          <div class="value" id="price">—</div>
+        </div>
+      </div>
+      <div class="progress" aria-label="Sold progress">
+        <span id="bar"></span>
+      </div>
+      <div class="note">Live counter updates every ~10 seconds. Values are in BONE (Shibarium).</div>
+      <div id="status" class="note"></div>
+    </div>
+
+    <div>
+      <div class="row" style="margin-bottom:8px">
+        <input type="number" id="qty" min="1" max="10" value="1"/>
+        <button id="maxBtn">Max</button>
+      </div>
+      <button class="primary" id="mintBtn" disabled>Mint</button>
+      <div id="txMsg" class="note"></div>
+      <div id="err" class="error" style="display:none"></div>
+      <div id="ok" class="success" style="display:none"></div>
+    </div>
+  </div>
+
+<div class="divider"></div>
+<div class="footer">
+  <div class="badge" id="saleState">Sale: unknown</div>
+  <div class="muted" style="position: relative; display: inline-block;">
+    Contract: 
+    <span id="contractAddress">0xC7faEE890862A86EE391c756597173B9922245D6</span>
+    <button id="copyBtn">Copy</button>
+    <span id="copyMsg" 
+          style="display:none; color:green; font-weight:bold; position:absolute; top:-25px; left:0;">
+      ✅ Contract Address Copied!
+    </span>
+  </div>
+</div>
+
+<script>
+
+// Your 9 image URLs
+const images = [
+  "chika1.png",
+  "chika2.png",
+  "chika3.png",
+  "chika4.png",
+  "chika5.png",
+  "chika6.png",
+  "chika7.png",
+  "chika8.png",
+  "chika9.png"
+];
+
+// Containers
+const leftImagesContainer = document.getElementById("leftImages");
+const rightImagesContainer = document.getElementById("rightImages");
+
+let leftIndex = 0;
+let rightIndex = 1; // start with a different image
+
+function renderSlide() {
+  // Set left image
+  leftImagesContainer.innerHTML = `<img src="${images[leftIndex]}" alt="Chika">`;
+  
+  // Set right image
+  rightImagesContainer.innerHTML = `<img src="${images[rightIndex]}" alt="Chika">`;
+  
+  // Move to next image, looping around
+  leftIndex = (leftIndex + 1) % images.length;
+  rightIndex = (rightIndex + 1) % images.length;
+}
+
+// Initial render
+renderSlide();
+
+// Change every 4 seconds
+setInterval(renderSlide, 4000);
+
+
+
+const CONTRACT_ADDRESS = "0xC7faEE890862A86EE391c756597173B9922245D6";
+const FALLBACK_MAX_SUPPLY = 10000;
+const SHIBARIUM = {
+  chainId: "0x9d",
+  chainName: "Puppynet Testnet",
+  nativeCurrency: { name: "BONE", symbol: "BONE", decimals: 18 },
+  rpcUrls: ["https://puppynet.shibrpc.com"],
+  blockExplorerUrls: ["https://puppyscan.shib.io/"]
+};
+
+document.getElementById("copyBtn").addEventListener("click", function() {
+  const address = document.getElementById("contractAddress").innerText;
+  navigator.clipboard.writeText(address).then(() => {
+    const msg = document.getElementById("copyMsg");
+    msg.style.display = "inline"; // show message
+    setTimeout(() => {
+      msg.style.display = "none"; // hide after 3s
+    }, 3000);
+  }).catch(err => {
+    console.error("Failed to copy: ", err);
+  });
+});
+
+let provider, signer, contract;
+const $ = id => document.getElementById(id);
+const ui = {
+  network:$("network"), minted:$("minted"), remaining:$("remaining"),
+  bar:$("bar"), price:$("price"), sale:$("saleState"),
+  addr:$("contractAddress"), qty:$("qty"),
+  mintBtn:$("mintBtn"), connectBtn:$("connectBtn"), maxBtn:$("maxBtn"),
+  txMsg:$("txMsg"), err:$("err"), ok:$("ok"), status:$("status")
+};
+ui.addr.textContent = CONTRACT_ADDRESS;
+
+// Minimal ABI
+const CONTRACT_ABI = [
+  "function totalSupply() view returns (uint256)",
+  "function MAX_SUPPLY() view returns (uint256)",
+  "function MAX_PER_TX() view returns (uint256)",
+  "function MINT_PRICE() view returns (uint256)",  
+  "function saleActive() view returns (bool)",
+  "function mint(uint256 quantity) payable",
+  "function flipSaleActive() external"
+];
+
+// Provider + Connect
+async function ensureProvider(){
+  if (!window.ethers) throw new Error("ethers.js failed to load");
+  if (!window.ethereum) throw new Error("No wallet detected (install MetaMask)");
+  provider = new ethers.providers.Web3Provider(window.ethereum,"any");
+}
+
+async function connect(){
+  try{
+    ui.txMsg.textContent = "Opening wallet…";
+    await ensureProvider();
+
+    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    if(!accounts.length) throw new Error("No account authorized");
+    signer = provider.getSigner();
+    contract = contract.connect(signer);
+
+    const currentChain = await window.ethereum.request({ method: "eth_chainId" });
+    if(parseInt(currentChain,16)!==157){
+      try{
+        await window.ethereum.request({ method:"wallet_switchEthereumChain", params:[{ chainId:"0x9d" }] });
+      }catch(e){
+        if(e.code===4902) await window.ethereum.request({ method:"wallet_addEthereumChain", params:[SHIBARIUM] });
+        else throw e;
+      }
+    }
+
+    ui.connectBtn.textContent = accounts[0].slice(0,6)+"…"+accounts[0].slice(-4);
+    ui.mintBtn.disabled = false;
+    ui.txMsg.textContent="";
+    await refreshStats();
+  }catch(e){ ui.txMsg.textContent=""; ui.err.style.display="block"; ui.err.textContent=e.message; console.error(e); }
+}
+
+// Refresh stats
+async function refreshStats(){
+  if(!contract) return;
+  try{
+    const minted = await contract.totalSupply().catch(()=>0);
+    let maxSupply;
+    try{ maxSupply = await contract.MAX_SUPPLY(); }catch{ maxSupply = FALLBACK_MAX_SUPPLY; }
+    const remaining = ethers.BigNumber.from(maxSupply).sub(minted);
+    ui.minted.textContent = minted.toString();
+    ui.remaining.textContent = remaining.toString();
+    ui.bar.style.width = Math.min(100, Number(minted.mul(100).div(maxSupply)))+"%";
+
+    try{ 
+      const p = await contract.MINT_PRICE();
+      ui.price.textContent = `${ethers.utils.formatEther(p)} BONE`;
+    }catch{ ui.price.textContent="—"; }
+
+    try{
+      const live = await contract.saleActive();
+      ui.sale.textContent = `Sale: ${live?"LIVE":"PAUSED"}`;
+      ui.sale.style.background = live ? "rgba(125,255,182,.9)" : "rgba(150,160,175,.25)";
+    }catch{ ui.sale.textContent="Sale: unknown"; }
+
+  }catch(e){ ui.status.textContent="Unable to read contract."; console.error(e); }
+}
+
+// Mint
+async function doMint(){
+  try{
+    if(!contract) { await connect(); if(!contract) throw new Error("Connect first"); }
+
+    const maxPerTx = await contract.MAX_PER_TX().catch(()=>5);
+    const q = Math.max(1, Math.min(maxPerTx, parseInt(ui.qty.value||"1",10)));
+    ui.qty.value = String(q);
+
+    const p = await contract.MINT_PRICE();
+    const total = p.mul(q);
+
+    ui.txMsg.textContent = "Sending tx…";
+    const tx = await contract.mint(q, { value: total });
+    ui.txMsg.textContent = `Tx sent: ${tx.hash.slice(0,10)}…`;
+    const rcpt = await tx.wait();
+    ui.ok.style.display="block";
+    ui.ok.textContent=`Success! Block ${rcpt.blockNumber}`;
+    ui.txMsg.textContent="";
+    await refreshStats();
+  }catch(e){ ui.txMsg.textContent=""; ui.err.style.display="block"; ui.err.textContent=e.message; console.error(e); }
+}
+
+// Init
+async function init(){
+  await ensureProvider();
+  contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+  await refreshStats();
+  setInterval(refreshStats,10000);
+
+  ui.connectBtn.addEventListener("click", connect);
+  ui.maxBtn.addEventListener("click", async ()=>{
+    try{ const maxPerTx = await contract.MAX_PER_TX(); ui.qty.value = maxPerTx.toString(); }
+    catch(e){ ui.err.style.display="block"; ui.err.textContent="Unable to fetch MAX_PER_TX"; console.error(e); }
+  });
+  ui.mintBtn.addEventListener("click", doMint);
+}
+init();
+</script>
+</body>
+</html>
