@@ -1,7 +1,7 @@
 // ==================
 // ⚙️ CONFIG
 // ==================
-const CONTRACT_ADDRESS = "0xC7faEE890862A86EE391c756597173B9922245D6"; 
+const CONTRACT_ADDRESS = "0xF8f328390E3bb01773c22cE874848612eF04F579"; 
 const FALLBACK_MAX_SUPPLY = 10000;
 const SHIBARIUM = {
   chainId: "0x9d", // hex for 157
@@ -150,5 +150,6 @@ init();
 
 const leftImagesContainer = document.getElementById("leftImages");
 const rightImagesContainer = document.getElementById("rightImages");
+
 
 
