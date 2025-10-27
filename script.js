@@ -1,7 +1,7 @@
 // ===================
 // CONFIG
 // ===================
-const CONTRACT_ADDRESS = "0x56F9336f4B8BC63Bb2ac59C41Cc2ca0a3f52607c";
+const CONTRACT_ADDRESS = "0xF8f328390E3bb01773c22cE874848612eF04F579";
 const FALLBACK_MAX_SUPPLY = 10000;
 const SHIBARIUM = {
   chainId: "0x6d",
@@ -169,3 +169,4 @@ init();
 // ERROR HANDLER
 // ===================
 function showErr(e){ ui.err.style.display="block"; ui.err.textContent=e.message||e; setTimeout(()=>{ui.err.style.display="none"},5000); }
+
