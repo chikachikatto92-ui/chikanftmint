@@ -7,41 +7,60 @@
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 <style>
 :root{
-  --bg:#0b0f14;--muted:#d1cfcf;--text:#fff8f0;--accent:#f7a72c;--accent-2:#ff6b6b;--highlight:#ffcd73;--danger:#ff4f4f;
-  --card-bg:rgba(255,255,255,0.04);--card-border:rgba(255,255,255,0.1);--glow:rgba(247,167,44,0.4);
+  --bg:#0b0f14;--muted:#d1cfcf;--text:#fff8f0;
+  --accent:#f7a72c;--accent-2:#ff6b6b;--highlight:#ffcd73;
+  --danger:#ff4f4f;--card-bg:rgba(255,255,255,0.04);
+  --card-border:rgba(255,255,255,0.1);--glow:rgba(247,167,44,0.4);
 }
 *{box-sizing:border-box;}
-html,body{height:100%;margin:0;font-family:'Inter','Segoe UI',sans-serif;
-background:radial-gradient(ellipse at top left,rgba(247,167,44,0.15),transparent 60%),
-radial-gradient(ellipse at bottom right,rgba(255,107,107,0.12),transparent 70%),
-linear-gradient(135deg,#0b0f14,#1b1f2c);
-color:var(--text);display:flex;align-items:center;justify-content:center;flex-direction:column;padding:24px;overflow-x:hidden;}
-.card{width:100%;max-width:720px;background:var(--card-bg);backdrop-filter:blur(10px);
-border:1px solid var(--card-border);border-radius:20px;padding:28px;
-box-shadow:0 20px 50px rgba(0,0,0,0.4);transition:transform .3s,box-shadow .3s;z-index:2;}
+html,body{
+  height:100%;margin:0;font-family:'Inter','Segoe UI',sans-serif;
+  background:radial-gradient(ellipse at top left,rgba(247,167,44,0.15),transparent 60%),
+             radial-gradient(ellipse at bottom right,rgba(255,107,107,0.12),transparent 70%),
+             linear-gradient(135deg,#0b0f14,#1b1f2c);
+  color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px;
+  flex-direction: column; overflow-x:hidden;
+}
+
+/* === Card === */
+.card{
+  width:100%;max-width:720px;background:var(--card-bg);
+  backdrop-filter:blur(10px);border:1px solid var(--card-border);
+  border-radius:20px;padding:28px;box-shadow:0 20px 50px rgba(0,0,0,0.4);
+  transition: transform .3s, box-shadow .3s; z-index:2;
+}
 .card:hover{transform:translateY(-4px);box-shadow:0 25px 60px rgba(0,0,0,0.5);}
+
+/* === Header === */
 .header{display:flex;justify-content:space-between;gap:12px;align-items:center;
 border-bottom:1px solid var(--card-border);padding-bottom:16px;margin-bottom:20px;}
 .title{font-weight:800;font-size:24px;letter-spacing:.3px;color:var(--accent);}
 .muted{color:var(--muted);font-size:14px;}
+
+/* === Layout === */
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;}
+
+/* === Buttons & Inputs === */
 button,input[type=number]{height:46px;border-radius:14px;border:1px solid rgba(255,255,255,.12);
 background:#1a1f2a;color:var(--text);font-weight:600;transition:all .3s ease;}
 button:hover{transform:translateY(-2px);box-shadow:0 0 8px var(--accent);}
-button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));
-border:none;box-shadow:0 4px 15px var(--glow);color:#fff;}
+button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));border:none;
+box-shadow:0 4px 15px var(--glow);color:#fff;}
 button:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;}
 input[type=number]{padding:0 14px;width:100px;background:#121828;}
+
+/* === Stats & Progress === */
 .stat{flex:1;min-width:140px;background:rgba(255,255,255,0.02);
-border:1px solid rgba(255,255,255,.1);padding:14px 16px;border-radius:14px;}
+border:1px solid rgba(255,255,255,.1);padding:14px 16px;border-radius:14px;transition:background .3s;}
+.stat:hover{background:rgba(255,255,255,0.05);}
 .stat .label{font-size:13px;color:var(--muted);}
 .stat .value{font-size:20px;font-weight:700;margin-top:6px;color:var(--highlight);}
 .progress{position:relative;height:14px;background:rgba(255,255,255,.06);
 border-radius:999px;overflow:hidden;border:1px solid var(--card-border);margin:12px 0;}
 .progress>span{position:absolute;inset:0 auto 0 0;width:0;
-background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .6s ease;border-radius:999px;}
-.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;}
-@media(max-width:720px){.grid{grid-template-columns:1fr;}}
+background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .6s ease;
+border-radius:999px;}
 .note{font-size:13px;color:var(--muted);margin-top:8px;}
 .error{color:var(--danger);font-size:14px;margin-top:10px;display:none;}
 .success{color:#7dffb6;font-size:14px;margin-top:10px;display:none;}
@@ -52,29 +71,38 @@ padding:6px 12px;border-radius:999px;font-weight:700;box-shadow:0 2px 10px var(-
 #contractAddress{font-family:monospace;user-select:all;}
 
 /* === Side Images === */
-.side-images{display:flex;flex-direction:column;gap:16px;pointer-events:none;z-index:1;}
-.side-images.left{position:fixed;top:50%;left:16px;transform:translateY(-50%);}
-.side-images.right{position:fixed;top:50%;right:16px;transform:translateY(-50%);}
-.side-images img{width:320px;height:320px;object-fit:cover;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.4);transition:transform 0.3s;opacity:0.85;}
+.side-images{position:fixed;top:50%;transform:translateY(-50%);
+display:flex;flex-direction:column;gap:16px;z-index:1;pointer-events:none;}
+.side-images.left{left:16px;}
+.side-images.right{right:16px;}
+.side-images img{width:320px;height:320px;object-fit:cover;border-radius:12px;
+box-shadow:0 4px 12px rgba(0,0,0,0.4);transition:transform .3s;opacity:0.85;}
 .side-images img:hover{transform:scale(1.05);opacity:1;}
 
-/* === Responsive Mobile === */
+/* === Responsive === */
+@media(max-width:1024px){.side-images img{width:260px;height:260px;}}
 @media(max-width:768px){
   body{padding:16px;}
-  .card{max-width:90%;padding:20px;}
+  .card{max-width:90%;padding:22px;}
   .title{font-size:20px;}
   .grid{grid-template-columns:1fr;}
-  .side-images{position:static;transform:none;flex-direction:row;justify-content:center;margin:12px 0;}
-  .side-images img{width:120px;height:120px;opacity:0.7;}
-  .side-images.top{order:-1;}
-  .side-images.bottom{order:1;}
+  .side-images{position:relative !important; transform:none !important; flex-direction:row; justify-content:center; margin:12px 0;}
+  .side-images.left,.side-images.right{left:auto !important;right:auto !important;top:auto !important;bottom:auto !important;}
+  .side-images img{width:100px !important;height:100px !important;opacity:0.7;}
+}
+@media(max-width:480px){
+  body{padding:12px;}
+  .card{max-width:98%;padding:18px;}
+  .title{font-size:18px;}
+  .header{flex-direction:column;text-align:center;}
+  .side-images img{width:80px;height:80px;opacity:0.6;}
 }
 </style>
 </head>
 <body>
 
-<!-- Top & Bottom Panels for Mobile -->
-<div class="side-images top" id="topImages"></div>
+<div class="side-images left" id="leftImages"></div>
+<div class="side-images right" id="rightImages"></div>
 
 <div class="card">
   <div class="header">
@@ -92,12 +120,15 @@ padding:6px 12px;border-radius:999px;font-weight:700;box-shadow:0 2px 10px var(-
       <div class="row" style="margin-bottom:10px">
         <div class="stat"><div class="label">Minted</div><div class="value" id="minted">0</div></div>
         <div class="stat"><div class="label">Remaining</div><div class="value" id="remaining">—</div></div>
-        <div class="stat" id="mintPriceContainer"><div class="label">Price (per NFT)</div><div class="value" id="price">—</div></div>
+        <div class="stat" id="mintPriceContainer">
+          <div class="label">Price (per NFT)</div><div class="value" id="price">—</div>
+        </div>
       </div>
       <div class="progress"><span id="bar"></span></div>
       <div class="note">Live counter updates every ~10 seconds. Values in BONE.</div>
       <div id="status" class="note"></div>
     </div>
+
     <div>
       <div class="row" style="margin-bottom:8px">
         <input type="number" id="qty" min="1" max="10" value="1"/>
@@ -117,44 +148,120 @@ padding:6px 12px;border-radius:999px;font-weight:700;box-shadow:0 2px 10px var(-
   </div>
 </div>
 
-<div class="side-images bottom" id="bottomImages"></div>
-
-<!-- Left & Right for Desktop -->
-<div class="side-images left" id="leftImages"></div>
-<div class="side-images right" id="rightImages"></div>
-
 <script>
-const CONTRACT_ADDRESS="0xF8f328390E3bb01773c22cE874848612eF04F579";
-const FALLBACK_MAX_SUPPLY=10000;
-const SHIBARIUM={chainId:"0x6d",chainName:"Shibarium Mainnet",nativeCurrency:{name:"BONE",symbol:"BONE",decimals:18},rpcUrls:["https://www.shibrpc.com"],blockExplorerUrls:["https://www.shibariumscan.io"]};
-let provider,signer,contract;
-const $=id=>document.getElementById(id);
-const ui={network:$("network"),minted:$("minted"),remaining:$("remaining"),bar:$("bar"),price:$("price"),sale:$("saleState"),addr:$("contractAddress"),qty:$("qty"),mintBtn:$("mintBtn"),connectBtn:$("connectBtn"),maxBtn:$("maxBtn"),txMsg:$("txMsg"),err:$("err"),ok:$("ok"),status:$("status")};
-ui.addr.textContent=CONTRACT_ADDRESS;
-function showErr(e){ui.err.style.display="block";ui.err.textContent=e.message||e;console.error(e);}
+const CONTRACT_ADDRESS = "0xF8f328390E3bb01773c22cE874848612eF04F579";
+const FALLBACK_MAX_SUPPLY = 10000;
+const SHIBARIUM = { chainId:"0x6d", chainName:"Shibarium Mainnet", nativeCurrency:{name:"BONE",symbol:"BONE",decimals:18}, rpcUrls:["https://www.shibrpc.com"], blockExplorerUrls:["https://www.shibariumscan.io"]};
+
+let provider, signer, contract;
+const $ = id => document.getElementById(id);
+const ui = { network:$("network"), minted:$("minted"), remaining:$("remaining"), bar:$("bar"), price:$("price"), sale:$("saleState"), addr:$("contractAddress"), qty:$("qty"), mintBtn:$("mintBtn"), connectBtn:$("connectBtn"), maxBtn:$("maxBtn"), txMsg:$("txMsg"), err:$("err"), ok:$("ok"), status:$("status") };
+ui.addr.textContent = CONTRACT_ADDRESS;
+
+function showErr(e){ui.err.style.display="block";ui.err.textContent=e.message||e;setTimeout(()=>{ui.err.style.display="none"},5000);}
 function showOk(m){ui.ok.style.display="block";ui.ok.textContent=m;setTimeout(()=>ui.ok.style.display="none",5000);}
 function hideErr(){ui.err.style.display="none";ui.err.textContent="";}
-async function connectWallet(){try{if(!window.ethereum)throw new Error("MetaMask not installed");provider=new ethers.providers.Web3Provider(window.ethereum);await provider.send("eth_requestAccounts",[]);const network=await provider.getNetwork();if(network.chainId!==109){await window.ethereum.request({method:"wallet_addEthereumChain",params:[SHIBARIUM]});}signer=provider.getSigner();ui.network.textContent="Connected to Shibarium ✅";await loadContract();}catch(e){showErr(e);}}
-async function loadContract(){try{const abiRes=await fetch(`https://www.shibariumscan.io/api?module=contract&action=getabi&address=${CONTRACT_ADDRESS}`);const abiData=await abiRes.json();if(abiData.status!=="1")throw new Error("Failed to fetch ABI");const abi=JSON.parse(abiData.result);contract=new ethers.Contract(CONTRACT_ADDRESS,abi,signer);await updateStats();startAutoUpdate();}catch(e){showErr(e);}}
-async function updateStats(){try{const total=await contract.totalSupply();let max=FALLBACK_MAX_SUPPLY;try{max=await contract.MAX_SUPPLY();}catch{}const price=await contract.MINT_PRICE();const sale=await contract.saleActive();ui.minted.textContent=total.toString();ui.remaining.textContent=(max-total).toString();ui.bar.style.width=((total*100)/max)+"%";ui.price.textContent=ethers.utils.formatEther(price)+" BONE";ui.sale.textContent=sale?"Active":"Closed";}catch(e){console.warn(e);}}
-function startAutoUpdate(){setInterval(()=>{if(contract)updateStats();},10000);}
-async function mintNFT(){hideErr();try{const qty=parseInt(ui.qty.value);const price=await contract.MINT_PRICE();const total=price.mul(qty);const tx=await contract.mint(qty,{value:total});ui.txMsg.textContent="Transaction sent... waiting for confirmation";await tx.wait();ui.txMsg.textContent="";showOk("✅ Mint successful!");updateStats();}catch(e){showErr(e);}}
-ui.connectBtn.onclick=connectWallet;
-ui.mintBtn.onclick=mintNFT;
-ui.maxBtn.onclick=()=>ui.qty.value=10;
 
-// Images rotation
+async function connectWallet(){
+  try{
+    if(!window.ethereum) throw new Error("MetaMask not installed");
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts",[]);
+    const network = await provider.getNetwork();
+    if(network.chainId!==109){
+      await window.ethereum.request({method:"wallet_addEthereumChain",params:[SHIBARIUM]});
+    }
+    signer = provider.getSigner();
+    ui.network.textContent = "Connected to Shibarium ✅";
+    await loadContract();
+  }catch(e){showErr(e);}
+}
+
+async function loadContract(){
+  try{
+    const abiRes = await fetch(`https://www.shibariumscan.io/api?module=contract&action=getabi&address=${CONTRACT_ADDRESS}`);
+    const abiData = await abiRes.json();
+    if (abiData.status !== "1") throw new Error("Failed to fetch ABI");
+    const abi = JSON.parse(abiData.result);
+    contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+    await updateStats();
+    startAutoUpdate();
+  }catch(e){showErr(e);}
+}
+
+async function updateStats(){
+  try{
+    const total = await contract.totalSupply();
+    let max = FALLBACK_MAX_SUPPLY;
+    try{max = await contract.MAX_SUPPLY();}catch{}
+    const price = await contract.MINT_PRICE();
+    const sale = await contract.saleActive();
+    ui.minted.textContent = total.toString();
+    ui.remaining.textContent = (max-total).toString();
+    ui.bar.style.width = ((total*100)/max)+"%";
+    ui.price.textContent = ethers.utils.formatEther(price)+" BONE";
+    ui.sale.textContent = sale?"Active":"Closed";
+  }catch(e){console.warn(e);}
+}
+
+function startAutoUpdate(){setInterval(()=>{if(contract)updateStats();},10000);}
+
+async function mintNFT(){
+  hideErr();
+  try{
+    const qty = parseInt(ui.qty.value);
+    const price = await contract.MINT_PRICE();
+    const total = price.mul(qty);
+    const tx = await contract.mint(qty,{value:total});
+    ui.txMsg.textContent = "Transaction sent... waiting for confirmation";
+    await tx.wait();
+    ui.txMsg.textContent = "";
+    showOk("✅ Mint successful!");
+    updateStats();
+  }catch(e){showErr(e);}
+}
+
+ui.connectBtn.onclick = connectWallet;
+ui.mintBtn.onclick = mintNFT;
+ui.maxBtn.onclick = ()=>ui.qty.value=10;
+
+// Floating images rotation
 const leftImagesArray=["chika1.png","chika2.png","chika3.png"];
 const rightImagesArray=["chika4.png","chika5.png","chika6.png"];
-const topImagesArray=["chika1.png","chika2.png","chika3.png"];
-const bottomImagesArray=["chika4.png","chika5.png","chika6.png"];
-const leftContainer=$("leftImages"),rightContainer=$("rightImages");
-const topContainer=$("topImages"),bottomContainer=$("bottomImages");
-const leftImg=new Image(),rightImg=new Image(),topImg=new Image(),bottomImg=new Image();
+const leftContainer=document.getElementById("leftImages");
+const rightContainer=document.getElementById("rightImages");
+const leftImg=new Image(),rightImg=new Image();
 leftContainer.appendChild(leftImg);rightContainer.appendChild(rightImg);
-topContainer.appendChild(topImg);bottomContainer.appendChild(bottomImg);
+
 function randomImage(arr){return arr[Math.floor(Math.random()*arr.length)];}
-function updateImages(){leftImg.src=randomImage(leftImagesArray);rightImg.src=randomImage(rightImagesArray);topImg.src=randomImage(topImagesArray);bottomImg.src=randomImage(bottomImagesArray);}
+
+function updateImages(){
+  const isMobile = window.innerWidth <= 768;
+  if(isMobile){
+    // Mobile: show all images above the card
+    const container = document.createElement("div");
+    container.className = "side-images mobile";
+    container.style.display = "flex";
+    container.style.justifyContent = "center";
+    container.style.gap = "8px";
+    const imgs = [...leftImagesArray, ...rightImagesArray].map(src=>{
+      const img = new Image();
+      img.src = src;
+      img.style.width = "100px";
+      img.style.height = "100px";
+      img.style.opacity = 0.7;
+      img.style.borderRadius = "12px";
+      return img;
+    });
+    imgs.forEach(i=>container.appendChild(i));
+    const old = document.querySelector(".side-images.mobile");
+    if(old) old.remove();
+    document.body.insertBefore(container, document.querySelector(".card"));
+  } else {
+    leftImg.src=randomImage(leftImagesArray);
+    rightImg.src=randomImage(rightImagesArray);
+  }
+}
 updateImages();setInterval(updateImages,3000);
 </script>
 </body>
