@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
 <title>CHIKA NFT Minting • Shibarium</title>
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 <style>
@@ -15,10 +15,10 @@ html,body{height:100%;margin:0;font-family:'Inter','Segoe UI',sans-serif;
 background:radial-gradient(ellipse at top left,rgba(247,167,44,0.15),transparent 60%),
 radial-gradient(ellipse at bottom right,rgba(255,107,107,0.12),transparent 70%),
 linear-gradient(135deg,#0b0f14,#1b1f2c);
-color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px;}
+color:var(--text);display:flex;align-items:center;justify-content:center;flex-direction:column;padding:24px;overflow-x:hidden;}
 .card{width:100%;max-width:720px;background:var(--card-bg);backdrop-filter:blur(10px);
 border:1px solid var(--card-border);border-radius:20px;padding:28px;
-box-shadow:0 20px 50px rgba(0,0,0,0.4);transition:transform .3s,box-shadow .3s;}
+box-shadow:0 20px 50px rgba(0,0,0,0.4);transition:transform .3s,box-shadow .3s;z-index:2;}
 .card:hover{transform:translateY(-4px);box-shadow:0 25px 60px rgba(0,0,0,0.5);}
 .header{display:flex;justify-content:space-between;gap:12px;align-items:center;
 border-bottom:1px solid var(--card-border);padding-bottom:16px;margin-bottom:20px;}
@@ -50,19 +50,31 @@ background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width
 .badge{font-size:13px;color:#0b1220;background:rgba(247,167,44,.9);
 padding:6px 12px;border-radius:999px;font-weight:700;box-shadow:0 2px 10px var(--glow);}
 #contractAddress{font-family:monospace;user-select:all;}
-.side-images{position:fixed;top:50%;transform:translateY(-50%);
-display:flex;flex-direction:column;gap:16px;z-index:1;}
-.side-images.left{left:16px;}
-.side-images.right{right:16px;}
-.side-images img{width:360px;height:360px;object-fit:cover;
-border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.4);transition:transform 0.3s;}
-.side-images img:hover{transform:scale(1.1);}
+
+/* === Side Images === */
+.side-images{display:flex;flex-direction:column;gap:16px;pointer-events:none;z-index:1;}
+.side-images.left{position:fixed;top:50%;left:16px;transform:translateY(-50%);}
+.side-images.right{position:fixed;top:50%;right:16px;transform:translateY(-50%);}
+.side-images img{width:320px;height:320px;object-fit:cover;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.4);transition:transform 0.3s;opacity:0.85;}
+.side-images img:hover{transform:scale(1.05);opacity:1;}
+
+/* === Responsive Mobile === */
+@media(max-width:768px){
+  body{padding:16px;}
+  .card{max-width:90%;padding:20px;}
+  .title{font-size:20px;}
+  .grid{grid-template-columns:1fr;}
+  .side-images{position:static;transform:none;flex-direction:row;justify-content:center;margin:12px 0;}
+  .side-images img{width:120px;height:120px;opacity:0.7;}
+  .side-images.top{order:-1;}
+  .side-images.bottom{order:1;}
+}
 </style>
 </head>
 <body>
 
-<div class="side-images left" id="leftImages"></div>
-<div class="side-images right" id="rightImages"></div>
+<!-- Top & Bottom Panels for Mobile -->
+<div class="side-images top" id="topImages"></div>
 
 <div class="card">
   <div class="header">
@@ -80,15 +92,12 @@ border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.4);transition:transform 0.
       <div class="row" style="margin-bottom:10px">
         <div class="stat"><div class="label">Minted</div><div class="value" id="minted">0</div></div>
         <div class="stat"><div class="label">Remaining</div><div class="value" id="remaining">—</div></div>
-        <div class="stat" id="mintPriceContainer">
-          <div class="label">Price (per NFT)</div><div class="value" id="price">—</div>
-        </div>
+        <div class="stat" id="mintPriceContainer"><div class="label">Price (per NFT)</div><div class="value" id="price">—</div></div>
       </div>
       <div class="progress"><span id="bar"></span></div>
       <div class="note">Live counter updates every ~10 seconds. Values in BONE.</div>
       <div id="status" class="note"></div>
     </div>
-
     <div>
       <div class="row" style="margin-bottom:8px">
         <input type="number" id="qty" min="1" max="10" value="1"/>
@@ -108,112 +117,45 @@ border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.4);transition:transform 0.
   </div>
 </div>
 
+<div class="side-images bottom" id="bottomImages"></div>
+
+<!-- Left & Right for Desktop -->
+<div class="side-images left" id="leftImages"></div>
+<div class="side-images right" id="rightImages"></div>
+
 <script>
-const CONTRACT_ADDRESS = "0xF8f328390E3bb01773c22cE874848612eF04F579";
-const FALLBACK_MAX_SUPPLY = 10000;
-const SHIBARIUM = {
-  chainId:"0x6d",
-  chainName:"Shibarium Mainnet",
-  nativeCurrency:{name:"BONE",symbol:"BONE",decimals:18},
-  rpcUrls:["https://rpc.shibarium.shib.io"],
-  blockExplorerUrls:["https://www.shibariumscan.io"]
-};
-
-let provider, signer, contract;
-const $ = id => document.getElementById(id);
-const ui = {
-  network:$("network"), minted:$("minted"), remaining:$("remaining"),
-  bar:$("bar"), price:$("price"), sale:$("saleState"),
-  addr:$("contractAddress"), qty:$("qty"),
-  mintBtn:$("mintBtn"), connectBtn:$("connectBtn"), maxBtn:$("maxBtn"),
-  txMsg:$("txMsg"), err:$("err"), ok:$("ok"), status:$("status")
-};
-ui.addr.textContent = CONTRACT_ADDRESS;
-
+const CONTRACT_ADDRESS="0xF8f328390E3bb01773c22cE874848612eF04F579";
+const FALLBACK_MAX_SUPPLY=10000;
+const SHIBARIUM={chainId:"0x6d",chainName:"Shibarium Mainnet",nativeCurrency:{name:"BONE",symbol:"BONE",decimals:18},rpcUrls:["https://www.shibrpc.com"],blockExplorerUrls:["https://www.shibariumscan.io"]};
+let provider,signer,contract;
+const $=id=>document.getElementById(id);
+const ui={network:$("network"),minted:$("minted"),remaining:$("remaining"),bar:$("bar"),price:$("price"),sale:$("saleState"),addr:$("contractAddress"),qty:$("qty"),mintBtn:$("mintBtn"),connectBtn:$("connectBtn"),maxBtn:$("maxBtn"),txMsg:$("txMsg"),err:$("err"),ok:$("ok"),status:$("status")};
+ui.addr.textContent=CONTRACT_ADDRESS;
 function showErr(e){ui.err.style.display="block";ui.err.textContent=e.message||e;console.error(e);}
 function showOk(m){ui.ok.style.display="block";ui.ok.textContent=m;setTimeout(()=>ui.ok.style.display="none",5000);}
 function hideErr(){ui.err.style.display="none";ui.err.textContent="";}
+async function connectWallet(){try{if(!window.ethereum)throw new Error("MetaMask not installed");provider=new ethers.providers.Web3Provider(window.ethereum);await provider.send("eth_requestAccounts",[]);const network=await provider.getNetwork();if(network.chainId!==109){await window.ethereum.request({method:"wallet_addEthereumChain",params:[SHIBARIUM]});}signer=provider.getSigner();ui.network.textContent="Connected to Shibarium ✅";await loadContract();}catch(e){showErr(e);}}
+async function loadContract(){try{const abiRes=await fetch(`https://www.shibariumscan.io/api?module=contract&action=getabi&address=${CONTRACT_ADDRESS}`);const abiData=await abiRes.json();if(abiData.status!=="1")throw new Error("Failed to fetch ABI");const abi=JSON.parse(abiData.result);contract=new ethers.Contract(CONTRACT_ADDRESS,abi,signer);await updateStats();startAutoUpdate();}catch(e){showErr(e);}}
+async function updateStats(){try{const total=await contract.totalSupply();let max=FALLBACK_MAX_SUPPLY;try{max=await contract.MAX_SUPPLY();}catch{}const price=await contract.MINT_PRICE();const sale=await contract.saleActive();ui.minted.textContent=total.toString();ui.remaining.textContent=(max-total).toString();ui.bar.style.width=((total*100)/max)+"%";ui.price.textContent=ethers.utils.formatEther(price)+" BONE";ui.sale.textContent=sale?"Active":"Closed";}catch(e){console.warn(e);}}
+function startAutoUpdate(){setInterval(()=>{if(contract)updateStats();},10000);}
+async function mintNFT(){hideErr();try{const qty=parseInt(ui.qty.value);const price=await contract.MINT_PRICE();const total=price.mul(qty);const tx=await contract.mint(qty,{value:total});ui.txMsg.textContent="Transaction sent... waiting for confirmation";await tx.wait();ui.txMsg.textContent="";showOk("✅ Mint successful!");updateStats();}catch(e){showErr(e);}}
+ui.connectBtn.onclick=connectWallet;
+ui.mintBtn.onclick=mintNFT;
+ui.maxBtn.onclick=()=>ui.qty.value=10;
 
-async function connectWallet(){
-  try{
-    if(!window.ethereum) throw new Error("MetaMask not installed");
-    provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts",[]);
-    const network = await provider.getNetwork();
-    if(network.chainId!==109){
-      await window.ethereum.request({method:"wallet_addEthereumChain",params:[SHIBARIUM]});
-    }
-    signer = provider.getSigner();
-    ui.network.textContent = "Connected to Shibarium ✅";
-    await loadContract();
-  }catch(e){showErr(e);}
-}
-
-async function loadContract(){
-  try{
-    // ✅ Fixed ABI endpoint for Shibarium Mainnet
-    const abiRes = await fetch(`https://www.shibariumscan.io/api?module=contract&action=getabi&address=${CONTRACT_ADDRESS}`);
-    const abiData = await abiRes.json();
-    if (abiData.status !== "1") throw new Error("Failed to fetch ABI");
-
-    const abi = JSON.parse(abiData.result);
-    contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-
-    await updateStats();
-    startAutoUpdate();
-  }catch(e){showErr(e);}
-}
-
-async function updateStats(){
-  try{
-    const total = await contract.totalSupply();
-    let max = FALLBACK_MAX_SUPPLY;
-    try{max = await contract.MAX_SUPPLY();}catch{}
-    const price = await contract.MINT_PRICE();
-    const sale = await contract.saleActive();
-    ui.minted.textContent = total.toString();
-    ui.remaining.textContent = (max-total).toString();
-    ui.bar.style.width = ((total*100)/max)+"%";
-    ui.price.textContent = ethers.utils.formatEther(price)+" BONE";
-    ui.sale.textContent = sale?"Active":"Closed";
-  }catch(e){console.warn(e);}
-}
-
-// ✅ Added auto-refresh for live data
-function startAutoUpdate(){
-  setInterval(()=>{if(contract)updateStats();},10000);
-}
-
-async function mintNFT(){
-  hideErr();
-  try{
-    const qty = parseInt(ui.qty.value);
-    const price = await contract.MINT_PRICE();
-    const total = price.mul(qty);
-    const tx = await contract.mint(qty,{value:total});
-    ui.txMsg.textContent = "Transaction sent... waiting for confirmation";
-    await tx.wait();
-    ui.txMsg.textContent = "";
-    showOk("✅ Mint successful!");
-    updateStats();
-  }catch(e){showErr(e);}
-}
-
-ui.connectBtn.onclick = connectWallet;
-ui.mintBtn.onclick = mintNFT;
-ui.maxBtn.onclick = ()=>ui.qty.value=10;
-
-// Floating images rotation
+// Images rotation
 const leftImagesArray=["chika1.png","chika2.png","chika3.png"];
 const rightImagesArray=["chika4.png","chika5.png","chika6.png"];
-const leftContainer=document.getElementById("leftImages");
-const rightContainer=document.getElementById("rightImages");
-const leftImg=new Image(),rightImg=new Image();
+const topImagesArray=["chika1.png","chika2.png","chika3.png"];
+const bottomImagesArray=["chika4.png","chika5.png","chika6.png"];
+const leftContainer=$("leftImages"),rightContainer=$("rightImages");
+const topContainer=$("topImages"),bottomContainer=$("bottomImages");
+const leftImg=new Image(),rightImg=new Image(),topImg=new Image(),bottomImg=new Image();
 leftContainer.appendChild(leftImg);rightContainer.appendChild(rightImg);
+topContainer.appendChild(topImg);bottomContainer.appendChild(bottomImg);
 function randomImage(arr){return arr[Math.floor(Math.random()*arr.length)];}
-function updateImages(){leftImg.src=randomImage(leftImagesArray);rightImg.src=randomImage(rightImagesArray);}
+function updateImages(){leftImg.src=randomImage(leftImagesArray);rightImg.src=randomImage(rightImagesArray);topImg.src=randomImage(topImagesArray);bottomImg.src=randomImage(bottomImagesArray);}
 updateImages();setInterval(updateImages,3000);
 </script>
 </body>
 </html>
-
