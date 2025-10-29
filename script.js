@@ -1,7 +1,8 @@
 // ===================
 // CONFIG
 // ===================
-const CONTRACT_ADDRESS = "0xF8f328390E3bb01773c22cE874848612eF04F579";
+const CONTRACT_ADDRESS = "0x6b9FF97240AEc9D9B83320a1780263D3a0463030";
+const BONE_ADDRESS = "0x0000000000000000000000000000000000001010";
 const FALLBACK_MAX_SUPPLY = 10000;
 const SHIBARIUM = {
   chainId: "0x6d",
@@ -26,35 +27,47 @@ const ui = {
 ui.addr.textContent = CONTRACT_ADDRESS;
 
 // ===================
+// ERROR HANDLER
+// ===================
+function showErr(e){
+  ui.err.style.display="block";
+  ui.err.textContent = e.message || e;
+  console.error(e);
+  setTimeout(()=>{ui.err.style.display="none"},5000);
+}
+function showOk(m){
+  ui.ok.style.display="block";
+  ui.ok.textContent = m;
+  setTimeout(()=>ui.ok.style.display="none",5000);
+}
+
+// ===================
 // FETCH ABI AND DETECT FUNCTIONS
 // ===================
 async function fetchABI() {
   try {
     const res = await fetch(`https://api.shibariumscan.io/api?module=contract&action=getabi&address=${CONTRACT_ADDRESS}`);
     const data = await res.json();
-    if(data.status==="1") {
-      CONTRACT_ABI = JSON.parse(data.result);
-    } else throw new Error("Failed to fetch ABI");
+    if(data.status==="1") CONTRACT_ABI = JSON.parse(data.result);
+    else throw new Error("Failed to fetch ABI");
   } catch(e) {
     console.warn("Fallback minimal ABI", e);
     CONTRACT_ABI = [
       "function totalSupply() view returns (uint256)",
       "function MAX_SUPPLY() view returns (uint256)",
       "function MAX_PER_TX() view returns (uint256)",
+      "function MAX_PER_WALLET() view returns (uint256)",
       "function MINT_PRICE() view returns (uint256)",  
       "function saleActive() view returns (bool)",
+      "function mintedBy(address) view returns (uint256)",
       "function mint(uint256 quantity) payable"
     ];
   }
 
-  // Detect which functions exist
+  // Detect functions availability
   const iface = new ethers.utils.Interface(CONTRACT_ABI);
-  availableFuncs.totalSupply = iface.getFunction("totalSupply") ? true : false;
-  availableFuncs.MAX_SUPPLY = iface.getFunction("MAX_SUPPLY") ? true : false;
-  availableFuncs.MAX_PER_TX = iface.getFunction("MAX_PER_TX") ? true : false;
-  availableFuncs.MINT_PRICE = iface.getFunction("MINT_PRICE") ? true : false;
-  availableFuncs.saleActive = iface.getFunction("saleActive") ? true : false;
-  availableFuncs.mint = iface.getFunction("mint") ? true : false;
+  ["totalSupply","MAX_SUPPLY","MAX_PER_TX","MAX_PER_WALLET","MINT_PRICE","saleActive","mint","mintedBy"]
+    .forEach(f => availableFuncs[f] = iface.getFunction(f) ? true : false);
 }
 
 // ===================
@@ -80,9 +93,8 @@ async function connect(){
 
     const currentChain = await window.ethereum.request({ method:"eth_chainId" });
     if(parseInt(currentChain,16)!==109){
-      try{
-        await window.ethereum.request({ method:"wallet_switchEthereumChain", params:[{chainId:"0x6d"}] });
-      } catch(e){
+      try{ await window.ethereum.request({ method:"wallet_switchEthereumChain", params:[{chainId:"0x6d"}] }); }
+      catch(e){
         if(e.code===4902) await window.ethereum.request({ method:"wallet_addEthereumChain", params:[SHIBARIUM] });
         else throw e;
       }
@@ -99,7 +111,7 @@ async function connect(){
 }
 
 // ===================
-// REFRESH STATS DYNAMICALLY
+// REFRESH STATS
 // ===================
 async function refreshStats(){
   if(!contractRead) return;
@@ -115,35 +127,104 @@ async function refreshStats(){
     ui.price.textContent = `${ethers.utils.formatEther(p)} BONE`;
 
     const live = availableFuncs.saleActive ? await contractRead.saleActive().catch(()=>false) : false;
-    ui.sale.textContent = `Sale: ${live?"LIVE":"PAUSED"}`;
-    ui.sale.style.background = live ? "rgba(125,255,182,.9)" : "rgba(150,160,175,.25)";
+    ui.sale.textContent = live ? "Active" : "Closed";
   } catch(e){ ui.status.textContent="Unable to read contract"; console.error(e); }
 }
 
 // ===================
-// DYNAMIC MINT
+// USER LIMITS
+// ===================
+async function updateUserLimits(){
+  if(!contractRead) return 1;
+  try{
+    const maxPerTx = availableFuncs.MAX_PER_TX ? await contractRead.MAX_PER_TX().catch(()=>30) : 30;
+    const maxPerWallet = availableFuncs.MAX_PER_WALLET ? await contractRead.MAX_PER_WALLET().catch(()=>30) : 30;
+    const mintedByUser = availableFuncs.mintedBy ? await contractRead.mintedBy(user).catch(()=>0) : 0;
+    const totalSupply = availableFuncs.totalSupply ? await contractRead.totalSupply().catch(()=>0) : 0;
+    const maxSupply = availableFuncs.MAX_SUPPLY ? await contractRead.MAX_SUPPLY().catch(()=>FALLBACK_MAX_SUPPLY) : FALLBACK_MAX_SUPPLY;
+
+    const remainingWallet = maxPerWallet - mintedByUser;
+    const remainingTotal = maxSupply - totalSupply;
+    const allowedMax = Math.min(maxPerTx, remainingWallet, remainingTotal);
+    ui.qty.max = allowedMax > 0 ? allowedMax : 1;
+    return allowedMax;
+  } catch(e){ console.warn(e); return 1; }
+}
+
+// ===================
+// MINT NFT
 // ===================
 async function doMint(){
   try{
-    if(!contractWrite){ await connect(); if(!contractWrite) throw new Error("Connect first"); }
+    if(!contractWrite) { await connect(); if(!contractWrite) throw new Error("Connect first"); }
 
-    const maxPerTx = availableFuncs.MAX_PER_TX ? await contractRead.MAX_PER_TX().catch(()=>30) : 30;
-    const q = Math.max(1, Math.min(maxPerTx, parseInt(ui.qty.value||"1",10)));
-    ui.qty.value = String(q);
+    const maxQty = await updateUserLimits();
+    let qty = parseInt(ui.qty.value);
+    if(isNaN(qty) || qty < 1) qty = 1;
+    if(qty > maxQty) qty = maxQty;
+    ui.qty.value = qty;
 
-    const price = availableFuncs.MINT_PRICE ? await contractRead.MINT_PRICE().catch(()=>ethers.utils.parseEther("0.1")) : ethers.utils.parseEther("0.1");
-    const total = price.mul(q);
+    if(!availableFuncs.MINT_PRICE) throw new Error("MINT_PRICE function missing");
 
-    ui.txMsg.textContent = "Sending tx…";
-    const tx = await contractWrite.mint(q, { value: total });
-    ui.txMsg.textContent = `Tx sent: ${tx.hash.slice(0,10)}…`;
-    const rcpt = await tx.wait();
-    ui.ok.style.display="block";
-    ui.ok.textContent=`Success! Block ${rcpt.blockNumber}`;
-    ui.txMsg.textContent="";
+    const price = await contractRead.MINT_PRICE();
+    const total = price.mul(qty);
+
+    // ===================
+    // CHECK & APPROVE BONE
+    // ===================
+    const BONE = new ethers.Contract(
+      BONE_ADDRESS,
+      ["function allowance(address owner,address spender) view returns(uint256)",
+       "function approve(address spender,uint256 amount) returns(bool)"],
+      signer
+    );
+
+    let allowance = ethers.BigNumber.from(0);
+    try {
+      allowance = await BONE.allowance(user, CONTRACT_ADDRESS);
+    } catch(e){
+      console.warn("Allowance check failed, will request approval anyway", e);
+    }
+
+    if(allowance.lt(total)){
+      ui.txMsg.textContent = "Requesting BONE approval…";
+      try {
+        const approveTx = await BONE.approve(CONTRACT_ADDRESS, total);
+        await approveTx.wait();
+        ui.txMsg.textContent = "✅ Approval successful!";
+      } catch(e) {
+        ui.txMsg.textContent = "";
+        throw new Error("BONE approval failed: " + (e.message || e));
+      }
+    }
+
+    // ===================
+    // MINT
+    // ===================
+    ui.txMsg.textContent = `Minting ${qty} NFT(s)…`;
+    const tx = await contractWrite.mint(qty);
+    await tx.wait();
+
+    ui.txMsg.textContent = "";
+    showOk(`✅ Mint successful! Quantity: ${qty}`);
     await refreshStats();
   } catch(e){ ui.txMsg.textContent=""; showErr(e); console.error(e); }
 }
+
+// ===================
+// FLOATING IMAGES
+// ===================
+const leftImagesArray = ["chika1.png","chika2.png","chika3.png"];
+const rightImagesArray = ["chika4.png","chika5.png","chika6.png"];
+const leftContainer = document.getElementById("leftImages");
+const rightContainer = document.getElementById("rightImages");
+const leftImg = new Image();
+const rightImg = new Image();
+leftContainer.appendChild(leftImg);
+rightContainer.appendChild(rightImg);
+function randomImage(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function updateImages(){ leftImg.src=randomImage(leftImagesArray); rightImg.src=randomImage(rightImagesArray); }
+updateImages(); setInterval(updateImages,3000);
 
 // ===================
 // INIT
@@ -156,17 +237,8 @@ async function init(){
   setInterval(refreshStats,10000);
 
   ui.connectBtn.addEventListener("click", connect);
-  ui.maxBtn.addEventListener("click", async ()=>{
-    const maxPerTx = availableFuncs.MAX_PER_TX ? await contractRead.MAX_PER_TX().catch(()=>30) : 30;
-    ui.qty.value = maxPerTx.toString();
-  });
+  ui.maxBtn.addEventListener("click", async ()=>{ ui.qty.value = await updateUserLimits(); });
   ui.mintBtn.addEventListener("click", doMint);
 }
 
 init();
-
-// ===================
-// ERROR HANDLER
-// ===================
-function showErr(e){ ui.err.style.display="block"; ui.err.textContent=e.message||e; setTimeout(()=>{ui.err.style.display="none"},5000); }
-
