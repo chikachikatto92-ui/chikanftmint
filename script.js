@@ -1,11 +1,11 @@
 // ===================
 // CONFIG
 // ===================
-const CONTRACT_ADDRESS = "0x6b9FF97240AEc9D9B83320a1780263D3a0463030";
+const CONTRACT_ADDRESS = "0x9e4C1a31c8fD1a9d10fBFC81C1d6A95b2BafbDe8";
 const BONE_ADDRESS = "0x0000000000000000000000000000000000001010";
 const FALLBACK_MAX_SUPPLY = 10000;
 const SHIBARIUM = {
-  chainId: "0x6d",
+  chainId:  "0x9d", // 157 in hex
   chainName: "Shibarium Mainnet",
   nativeCurrency: { name: "BONE", symbol: "BONE", decimals: 18 },
   rpcUrls: ['https://rpc.shibarium.shib.io'],
@@ -242,3 +242,4 @@ async function init(){
 }
 
 init();
+
