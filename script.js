@@ -6,10 +6,10 @@ const BONE_ADDRESS = "0x0000000000000000000000000000000000001010";
 const FALLBACK_MAX_SUPPLY = 10000;
 const SHIBARIUM = {
   chainId:  "0x9d", // 157 in hex
-  chainName: "Shibarium Mainnet",
+  chainName: "Puppynet Testnet",
   nativeCurrency: { name: "BONE", symbol: "BONE", decimals: 18 },
-  rpcUrls: ['https://rpc.shibarium.shib.io'],
-  blockExplorerUrls: ['https://www.shibariumscan.io'],
+  rpcUrls: ['https://api.shibrpc.com/puppynet/'],
+  blockExplorerUrls: ['https://puppyscan.shib.io/'],
 };
 
 // ===================
@@ -242,4 +242,5 @@ async function init(){
 }
 
 init();
+
 
